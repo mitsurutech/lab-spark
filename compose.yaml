@@ -1,8 +1,8 @@
 # Apache Spark: DataFrames and SQL, one small Spark of your own and a CSV file to explore.
 #
 # Your copy is the only thing you may use, and it is the only thing you can reach: this lab
-# has no way out to the internet, so nothing you try can touch anybody else's machine. Never
-# point a tool at a site you do not own, in a lab or anywhere else.
+# has no way out to the internet, so nothing you try can touch anybody else's machine.
+# Never point a tool at a site you do not own, in a lab or anywhere else.
 #
 # Open the Spark UI from the lab's page, then use the terminal beside it. The spark service
 # has loaded orders.csv (24 orders, six columns) into a DataFrame called orders and a SQL
