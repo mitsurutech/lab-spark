@@ -1,0 +1,127 @@
+# Apache Spark: DataFrames and SQL, one small Spark of your own and a CSV file to explore.
+#
+# Your copy is the only thing you may use, and it is the only thing you can reach: this lab
+# has no way out to the internet, so nothing you try can touch anybody else's machine. Never
+# point a tool at a site you do not own, in a lab or anywhere else.
+#
+# Open the Spark UI from the lab's page, then use the terminal beside it. The spark service
+# has loaded orders.csv (24 orders, six columns) into a DataFrame called orders and a SQL
+# table of the same name, and answers on port 8000: POST a Spark SQL query to /sql, or one
+# DataFrame expression such as orders.filter(orders.country == "UK") to /df, and the result
+# comes back as a table. Every query that has to read the data is a job, and the Spark UI's
+# Jobs and SQL tabs show it as it runs.
+#
+# Hand in the result of a query you wrote yourself over orders.csv (for example the total
+# revenue per country, quantity times unit_price, largest first) and the job it made in the
+# Spark UI, with a sentence on what Spark did.
+#
+# The image runs as an unprivileged account and needs no capabilities. Spark runs in local
+# mode, one process holding the driver and its executor threads, which is what fits a small
+# copy. Nothing is saved: stopping the lab forgets every query.
+
+services:
+  spark:
+    image: spark:4.0.1-scala2.13-java21-python3-ubuntu
+    user: "185"
+    expose: ["8000", "4040"]
+    environment:
+      SPARK_HOME: /opt/spark
+      PYTHONPATH: /opt/spark/python:/opt/spark/python/lib/py4j-0.10.9.9-src.zip
+      PYSPARK_SUBMIT_ARGS: --driver-memory 320m --conf spark.testing.reservedMemory=104857600 --conf spark.ui.showConsoleProgress=false --conf spark.sql.shuffle.partitions=4 pyspark-shell
+    entrypoint:
+      - sh
+      - -c
+      - |
+        mkdir -p /tmp/lab
+        cat > /tmp/lab/orders.csv <<'CSV'
+        order_id,customer,country,product,quantity,unit_price
+        1001,Ada,UK,keyboard,2,25.00
+        1002,Bo,Japan,monitor,1,150.00
+        1003,Cai,France,mouse,3,12.50
+        1004,Dee,UK,monitor,1,150.00
+        1005,Eli,Spain,keyboard,1,25.00
+        1006,Fay,Japan,mouse,4,12.50
+        1007,Gus,UK,mouse,2,12.50
+        1008,Hui,France,keyboard,5,25.00
+        1009,Ivo,Spain,monitor,2,150.00
+        1010,Jun,Japan,keyboard,3,25.00
+        1011,Kit,UK,webcam,1,40.00
+        1012,Lea,France,monitor,1,150.00
+        1013,Moe,Spain,mouse,6,12.50
+        1014,Nia,Japan,webcam,2,40.00
+        1015,Oz,UK,keyboard,1,25.00
+        1016,Pia,France,webcam,3,40.00
+        1017,Quin,Spain,keyboard,2,25.00
+        1018,Rae,Japan,monitor,2,150.00
+        1019,Sol,UK,webcam,2,40.00
+        1020,Tia,France,mouse,1,12.50
+        1021,Uma,Spain,webcam,1,40.00
+        1022,Vic,Japan,mouse,5,12.50
+        1023,Wen,UK,monitor,2,150.00
+        1024,Xan,France,keyboard,2,25.00
+        CSV
+        cat > /tmp/lab/server.py <<'PY'
+        import threading
+        from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+        from pyspark.sql import SparkSession, functions as F
+
+        spark = (SparkSession.builder.master("local[2]").appName("lab-spark")
+                 .config("spark.driver.host", "127.0.0.1").config("spark.ui.port", "4040")
+                 .getOrCreate())
+        spark.sparkContext.setLogLevel("WARN")
+        orders = spark.read.csv("/tmp/lab/orders.csv", header=True, inferSchema=True)
+        orders.createOrReplaceTempView("orders")
+        orders.cache().count()
+        busy = threading.Lock()
+
+        def table(df):
+            return df._jdf.showString(100, 40, False)
+
+        class Handler(BaseHTTPRequestHandler):
+            def reply(self, code, text):
+                body = text.encode("utf-8")
+                self.send_response(code)
+                self.send_header("Content-Type", "text/plain; charset=utf-8")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def do_GET(self):
+                if self.path == "/health":
+                    return self.reply(200, "ready\n")
+                self.reply(200, "POST a Spark SQL query to /sql or a DataFrame expression to /df\n")
+
+            def do_POST(self):
+                size = int(self.headers.get("Content-Length") or 0)
+                text = self.rfile.read(min(size, 4000)).decode("utf-8", "replace").strip()
+                try:
+                    with busy:
+                        if self.path == "/sql":
+                            self.reply(200, table(spark.sql(text)))
+                        elif self.path == "/df":
+                            frame = eval(text, {"orders": orders, "F": F, "spark": spark})
+                            self.reply(200, table(frame) if hasattr(frame, "_jdf") else str(frame) + "\n")
+                        else:
+                            self.reply(404, "use /sql or /df\n")
+                except Exception as error:
+                    self.reply(400, str(error).split("\n")[0][:600] + "\n")
+
+            def log_message(self, *args):
+                pass
+
+        ThreadingHTTPServer(("0.0.0.0", 8000), Handler).serve_forever()
+        PY
+        cd /tmp/lab
+        exec python3 /tmp/lab/server.py
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
+      interval: 3s
+      timeout: 5s
+      retries: 60
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    labels:
+      lab.title: Spark UI
+      lab.open: "4040"
