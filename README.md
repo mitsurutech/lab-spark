@@ -1,5 +1,7 @@
 # Apache Spark lab with Docker Compose: learn DataFrames and Spark SQL on a CSV file
 
+[English](README.md) | [Français](README.fr.md) | [日本語](README.ja.md) | [Español](README.es.md)
+
 [![check](https://github.com/mitsurutech/lab-spark/actions/workflows/check.yml/badge.svg)](https://github.com/mitsurutech/lab-spark/actions/workflows/check.yml)
 
 A ready-made **Apache Spark lab** for classrooms, from the [MitsuruTech Learning Platform](https://mitsurutech.co.uk/learning), where schools and colleges give every student their own databases, containers and terminal in the browser. Each student gets their own small Spark with a CSV file already loaded as a **DataFrame**: they filter it, group and count it, answer a question in **Spark SQL**, and then open the **Spark UI** to see the jobs their queries made. Nothing to install, and no cluster to book.
@@ -94,7 +96,11 @@ test/check.sh
 
 [Apache Spark](https://spark.apache.org) is Apache-2.0 licensed. The image is `spark:4.0.1-scala2.13-java21-python3-ubuntu`, the Apache Spark project's own Docker Official Image.
 
-The compose file, the tests and this documentation are MIT licensed, see [LICENSE](LICENSE): copy it, change it, teach with it. The application inside is the licence of its own project, linked above.
+The application inside is the licence of its own project, linked above.
+
+## Licence
+
+This work is licensed under [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/). You may share it and adapt it for learning and teaching, if you credit Mitsuru Technologies Ltd, do not use it commercially, and share anything you make from it under the same licence. The full text is in the `LICENSE` file.
 
 ## About
 
