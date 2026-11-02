@@ -19,7 +19,7 @@ El único servicio arranca Spark (el driver y dos hilos ejecutores en un solo pr
 Responde en dos puertos, ambos dentro de la copia:
 
 - **4040, la Spark UI.** La página del laboratorio de la plataforma la abre por ti. Sus pestañas Jobs, Stages y SQL muestran cada consulta mientras se ejecuta.
-- **8000, un pequeño servicio de consultas.** Envía una consulta de Spark SQL a `/sql`, o una expresión de DataFrame a `/df`, y el resultado vuelve como una tabla. Existe porque la terminal que acompaña a un laboratorio tiene `curl` pero no tiene Spark propio.
+- **8000, un pequeño servicio de consultas.** Envía una consulta de Spark SQL a `/sql`, una expresión de DataFrame a `/df` o unas pocas líneas de PySpark a `/py`, y el resultado vuelve como una tabla. `/py` ejecuta el guion con `orders`, `F` y `spark` a mano y responde con lo que imprimió, y después con el valor de su última línea. Existe porque la terminal que acompaña a un laboratorio tiene `curl` pero no tiene Spark propio.
 
 La imagen es la del propio Apache Spark, ejecutada sin modificar y fijada a una versión (nunca `latest`), de modo que el laboratorio no cambia a una clase de una lección a la siguiente. Aquí no se construye nada y nada de este repositorio se distribuye en ella. Conviene conocer un ajuste: Spark se niega a arrancar con un montón tan pequeño si no se le dice lo contrario, así que el archivo establece `spark.testing.reservedMemory`, un ajuste pensado para las pruebas del propio Spark, para que quepa en el límite de 512 MB. No lo copies a un clúster real.
 
@@ -63,6 +63,7 @@ curl -s -d "SELECT country, count(*) AS orders FROM orders GROUP BY country ORDE
 3. **Agrupa y cuenta.** `orders.groupBy("country").count()` enviado a `/df`: el Reino Unido tiene siete pedidos, Japón y Francia seis, España cinco.
 4. **Pregúntalo en SQL.** `SELECT country, round(sum(quantity * unit_price), 2) AS revenue FROM orders GROUP BY country ORDER BY revenue DESC` enviado a `/sql` da Japón 717.5, Reino Unido 670.0, Francia 495.0 y España 490.0.
 5. **Mira los trabajos.** Abre la Spark UI y mira la pestaña SQL / DataFrame: cada consulta que ejecutaste está ahí, con su plan, y la pestaña Jobs tiene el trabajo en que se dividió.
+6. **Ejecuta un guion.** Tres líneas enviadas a `/py` (`by = orders.groupBy("country").agg(F.sum("quantity").alias("units"))`, `print("countries:", by.count())` y `by.orderBy(F.desc("units"))`, cada una en su línea) responden `countries: 4` y luego una tabla con Japón arriba con 17 unidades, después Francia 15, España 12 y Reino Unido 11.
 
 ## Para profesores
 
@@ -76,7 +77,7 @@ Nada en este laboratorio se califica automáticamente. El alumno entrega lo que 
 
 ## Lo que no funciona en un laboratorio
 
-Es un solo Spark en modo local, no un clúster: no hay un maestro ni un worker que iniciar, parar o romper, ni datos repartidos entre máquinas. Los datos son un archivo de 24 filas, así que los tiempos no dicen nada de cargas reales, y una consulta que necesite mucha más memoria de la que tiene la copia fallará. El punto de acceso `/df` evalúa una expresión de Python con las funciones de Spark, lo que sirve para aprender la API de DataFrame en tu propia copia privada, y no es un servicio que se deba exponer. El laboratorio no tiene ninguna salida a internet, así que no se puede descargar nada en él, y olvida cada consulta cuando se detiene.
+Es un solo Spark en modo local, no un clúster: no hay un maestro ni un worker que iniciar, parar o romper, ni datos repartidos entre máquinas. Los datos son un archivo de 24 filas, así que los tiempos no dicen nada de cargas reales, y una consulta que necesite mucha más memoria de la que tiene la copia fallará. El punto de acceso `/df` evalúa una expresión de Python y el punto de acceso `/py` ejecuta un guion corto de Python, ambos con las funciones de Spark, lo que sirve para aprender la API de DataFrame en tu propia copia privada, sin salida al exterior, y ninguno de los dos es un servicio que se deba exponer. El laboratorio no tiene ninguna salida a internet, así que no se puede descargar nada en él, y olvida cada consulta cuando se detiene.
 
 ## Solución de problemas
 

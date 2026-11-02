@@ -17,6 +17,13 @@ echo "$out" | grep -Eq "Japan *\| *6" || { echo "Japan is not 6: $out" >&2; exit
 echo "- revenue per country by SQL, largest first, Japan on top, 717.5"
 out=$(curl -fs -d "SELECT country, round(sum(quantity * unit_price), 2) AS revenue FROM orders GROUP BY country ORDER BY revenue DESC" http://spark:8000/sql)
 echo "$out" | sed -n 4p | grep -q "Japan.*717.5" || { echo "Japan is not on top: $out" >&2; exit 1; }
+echo "- a three-line script to /py prints, then ends on a table (KAN-701)"
+script=$(printf "by = orders.groupBy(\"country\").agg(F.sum(\"quantity\").alias(\"units\"))\nprint(\"countries:\", by.count())\nby.orderBy(F.desc(\"units\"))")
+out=$(curl -fs -d "$script" http://spark:8000/py)
+echo "$out" | head -1 | grep -qx "countries: 4" || { echo "no countries line in: $out" >&2; exit 1; }
+echo "$out" | grep -Eq "Japan *\| *17" || { echo "Japan is not 17: $out" >&2; exit 1; }
+code=$(curl -s -o /dev/null -w "%{http_code}" -d "x = orders.nope" http://spark:8000/py)
+[ "$code" = 400 ] || { echo "bad script answered $code" >&2; exit 1; }
 echo "- a wrong query is told, not a crash"
 code=$(curl -s -o /dev/null -w "%{http_code}" -d "SELECT nope FROM orders" http://spark:8000/sql)
 [ "$code" = 400 ] || { echo "bad query answered $code" >&2; exit 1; }

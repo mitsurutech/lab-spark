@@ -8,7 +8,10 @@
 # has loaded orders.csv (24 orders, six columns) into a DataFrame called orders and a SQL
 # table of the same name, and answers on port 8000: POST a Spark SQL query to /sql, or one
 # DataFrame expression such as orders.filter(orders.country == "UK") to /df, and the result
-# comes back as a table. Every query that has to read the data is a job, and the Spark UI's
+# comes back as a table. POST a short PySpark script of a few lines to /py (orders, F and spark
+# are in scope) and you get what it printed, then the value of its last line. /df and /py run
+# Python you typed, which is fine in your own private copy with no way out and would be a hole
+# anywhere else, so never expose either. Every query that has to read the data is a job, and the Spark UI's
 # Jobs and SQL tabs show it as it runs.
 #
 # Hand in the result of a query you wrote yourself over orders.csv (for example the total
@@ -61,7 +64,7 @@ services:
         1024,Xan,France,keyboard,2,25.00
         CSV
         cat > /tmp/lab/server.py <<'PY'
-        import threading
+        import ast, contextlib, io, threading
         from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
         from pyspark.sql import SparkSession, functions as F
 
@@ -77,6 +80,34 @@ services:
         def table(df):
             return df._jdf.showString(100, 40, False)
 
+        class Capped(io.TextIOBase):
+            # What a script prints, kept to 8 KB so a loop of prints cannot fill the memory.
+            def __init__(self):
+                self.parts, self.size = [], 0
+            def writable(self):
+                return True
+            def write(self, text):
+                room = 8192 - self.size
+                if room > 0:
+                    self.parts.append(text[:room])
+                    self.size += min(len(text), room)
+                return len(text)
+
+        def script(text):
+            # KAN-701. Runs a short script with orders, F and spark in scope: what it printed,
+            # then its last line if that is an expression. Like /df this runs Python the
+            # student typed, for their own private copy with no way out, never anywhere else.
+            tree = ast.parse(text, "<py>", "exec")
+            last = ast.Expression(tree.body.pop().value) if tree.body and isinstance(tree.body[-1], ast.Expr) else None
+            scope = {"orders": orders, "F": F, "spark": spark}
+            printed, value = Capped(), None
+            with contextlib.redirect_stdout(printed):
+                exec(compile(tree, "<py>", "exec"), scope)
+                if last is not None:
+                    value = eval(compile(last, "<py>", "eval"), scope)
+            shown = "" if value is None else table(value) if hasattr(value, "_jdf") else str(value) + "\n"
+            return "".join(printed.parts) + shown
+
         class Handler(BaseHTTPRequestHandler):
             def reply(self, code, text):
                 body = text.encode("utf-8")
@@ -89,7 +120,7 @@ services:
             def do_GET(self):
                 if self.path == "/health":
                     return self.reply(200, "ready\n")
-                self.reply(200, "POST a Spark SQL query to /sql or a DataFrame expression to /df\n")
+                self.reply(200, "POST a Spark SQL query to /sql, a DataFrame expression to /df or a PySpark script to /py\n")
 
             def do_POST(self):
                 size = int(self.headers.get("Content-Length") or 0)
@@ -101,8 +132,10 @@ services:
                         elif self.path == "/df":
                             frame = eval(text, {"orders": orders, "F": F, "spark": spark})
                             self.reply(200, table(frame) if hasattr(frame, "_jdf") else str(frame) + "\n")
+                        elif self.path == "/py":
+                            self.reply(200, script(text))
                         else:
-                            self.reply(404, "use /sql or /df\n")
+                            self.reply(404, "use /sql, /df or /py\n")
                 except Exception as error:
                     self.reply(400, str(error).split("\n")[0][:600] + "\n")
 

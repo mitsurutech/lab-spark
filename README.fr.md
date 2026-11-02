@@ -19,7 +19,7 @@ Le service unique démarre Spark (le driver et deux threads d’exécution dans 
 Il répond sur deux ports, tous deux à l’intérieur de la copie :
 
 - **4040, Spark UI.** La page du lab de la plateforme l’ouvre pour vous. Ses onglets Jobs, Stages et SQL montrent chaque requête pendant son exécution.
-- **8000, un petit service de requêtes.** Envoyez une requête Spark SQL à `/sql`, ou une expression DataFrame à `/df`, et le résultat revient sous forme de tableau. Il existe parce que le terminal qui accompagne un lab a `curl` mais pas de Spark à lui.
+- **8000, un petit service de requêtes.** Envoyez une requête Spark SQL à `/sql`, une expression DataFrame à `/df` ou quelques lignes de PySpark à `/py`, et le résultat revient sous forme de tableau. `/py` exécute le script avec `orders`, `F` et `spark` à portée de main et répond avec ce qu’il a affiché, puis avec la valeur de sa dernière ligne. Il existe parce que le terminal qui accompagne un lab a `curl` mais pas de Spark à lui.
 
 L’image est celle d’Apache Spark lui-même, exécutée sans modification et figée sur une version (jamais `latest`), de sorte que le lab ne change pas sous les pieds d’une classe d’une leçon à l’autre. Rien n’est construit ici et rien de ce dépôt n’y est distribué. Un réglage mérite d’être connu : Spark refuse de démarrer avec un tas aussi petit sauf indication contraire, le fichier fixe donc `spark.testing.reservedMemory`, un réglage prévu pour les propres tests de Spark, pour tenir dans la limite de 512 Mo. Ne le copiez pas sur un vrai cluster.
 
@@ -63,6 +63,7 @@ curl -s -d "SELECT country, count(*) AS orders FROM orders GROUP BY country ORDE
 3. **Regroupez et comptez.** `orders.groupBy("country").count()` envoyé à `/df` : le Royaume-Uni compte sept commandes, le Japon et la France six, l’Espagne cinq.
 4. **Posez la question en SQL.** `SELECT country, round(sum(quantity * unit_price), 2) AS revenue FROM orders GROUP BY country ORDER BY revenue DESC` envoyé à `/sql` donne Japon 717.5, Royaume-Uni 670.0, France 495.0 et Espagne 490.0.
 5. **Voyez les jobs.** Ouvrez Spark UI et regardez l’onglet SQL / DataFrame : chaque requête que vous avez lancée s’y trouve, avec son plan, et l’onglet Jobs montre les morceaux de travail en lesquels elle a été découpée.
+6. **Lancez un script.** Trois lignes envoyées à `/py` (`by = orders.groupBy("country").agg(F.sum("quantity").alias("units"))`, `print("countries:", by.count())` et `by.orderBy(F.desc("units"))`, chacune sur sa ligne) répondent `countries: 4`, puis un tableau avec le Japon en tête à 17 unités, puis la France 15, l’Espagne 12 et le Royaume-Uni 11.
 
 ## Pour les enseignants
 
@@ -76,7 +77,7 @@ Rien dans ce lab n’est noté automatiquement. L’élève rend ce qu’il a tr
 
 ## Ce qui ne fonctionne pas dans un lab
 
-C’est un seul Spark en mode local, pas un cluster : il n’y a ni maître ni worker à démarrer, arrêter ou casser, et pas de données réparties sur des machines. Les données tiennent dans un fichier de 24 lignes, les temps mesurés ne disent donc rien des charges réelles, et une requête qui demande bien plus de mémoire que n’en a la copie échouera. Le point d’accès `/df` évalue une expression Python avec les fonctions de Spark, ce qui sert à apprendre l’API DataFrame dans votre propre copie privée, et n’est pas un service à exposer. Le lab n’a aucun accès à internet, rien ne peut donc y être téléchargé, et il oublie chaque requête quand il s’arrête.
+C’est un seul Spark en mode local, pas un cluster : il n’y a ni maître ni worker à démarrer, arrêter ou casser, et pas de données réparties sur des machines. Les données tiennent dans un fichier de 24 lignes, les temps mesurés ne disent donc rien des charges réelles, et une requête qui demande bien plus de mémoire que n’en a la copie échouera. Le point d’accès `/df` évalue une expression Python et le point d’accès `/py` exécute un court script Python, tous deux avec les fonctions de Spark, ce qui sert à apprendre l’API DataFrame dans votre propre copie privée, sans accès à l’extérieur, et ni l’un ni l’autre n’est un service à exposer. Le lab n’a aucun accès à internet, rien ne peut donc y être téléchargé, et il oublie chaque requête quand il s’arrête.
 
 ## Dépannage
 

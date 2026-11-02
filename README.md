@@ -19,7 +19,7 @@ The one service starts Spark (the driver and two executor threads in a single pr
 It answers on two ports, both inside the copy:
 
 - **4040, the Spark UI.** The platform's lab page opens it for you. Its Jobs, Stages and SQL tabs show every query as it runs.
-- **8000, a small query service.** Post a Spark SQL query to `/sql`, or one DataFrame expression to `/df`, and the result comes back as a table. It is there because the terminal that sits beside a lab has `curl` and no Spark of its own.
+- **8000, a small query service.** Post a Spark SQL query to `/sql`, one DataFrame expression to `/df`, or a few lines of PySpark to `/py`, and the result comes back as a table. `/py` runs the script with `orders`, `F` and `spark` in scope and answers what it printed, then the value of its last line. It is there because the terminal that sits beside a lab has `curl` and no Spark of its own.
 
 The image is Apache Spark's own, run unmodified and pinned to a version (never `latest`), so the lab does not change under a class between one lesson and the next. Nothing is built here and nothing from this repository is distributed in it. One setting is worth knowing about: Spark refuses to start in a heap this small unless told otherwise, so the file sets `spark.testing.reservedMemory`, a setting meant for Spark's own tests, to fit the 512 MB limit. Do not copy it to a real cluster.
 
@@ -63,6 +63,7 @@ curl -s -d "SELECT country, count(*) AS orders FROM orders GROUP BY country ORDE
 3. **Group and count.** `orders.groupBy("country").count()` to `/df`: UK has seven orders, Japan and France six, Spain five.
 4. **Ask it in SQL.** `SELECT country, round(sum(quantity * unit_price), 2) AS revenue FROM orders GROUP BY country ORDER BY revenue DESC` to `/sql` gives Japan 717.5, UK 670.0, France 495.0 and Spain 490.0.
 5. **See the jobs.** Open the Spark UI and look at the SQL / DataFrame tab: every query you ran is there, with its plan, and the Jobs tab has the work it was split into.
+6. **Run a script.** Three lines to `/py` (`by = orders.groupBy("country").agg(F.sum("quantity").alias("units"))`, `print("countries:", by.count())` and `by.orderBy(F.desc("units"))`, each on its own line) answer `countries: 4` and then a table with Japan on top at 17 units, then France 15, Spain 12 and UK 11.
 
 ## For teachers
 
@@ -76,7 +77,7 @@ Nothing in this lab is marked automatically. The student hands in what they foun
 
 ## What does not work in a lab
 
-This is one Spark in local mode, not a cluster: there is no master and worker to start, stop or break, and no data spread over machines. The data is a 24-row file, so timings say nothing about real workloads, and a query that needs far more memory than the copy has will fail. The `/df` endpoint evaluates one Python expression with Spark's functions, which is for learning the DataFrame API in your own private copy, and is not a service to expose. The lab has no way out to the internet at all, so nothing can be downloaded into it, and it forgets every query when it stops.
+This is one Spark in local mode, not a cluster: there is no master and worker to start, stop or break, and no data spread over machines. The data is a 24-row file, so timings say nothing about real workloads, and a query that needs far more memory than the copy has will fail. The `/df` endpoint evaluates one Python expression and the `/py` endpoint runs a short Python script, both with Spark's functions, which is for learning the DataFrame API in your own private copy with no way out, and neither is a service to expose. The lab has no way out to the internet at all, so nothing can be downloaded into it, and it forgets every query when it stops.
 
 ## Troubleshooting
 
